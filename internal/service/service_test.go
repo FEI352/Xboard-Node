@@ -171,6 +171,26 @@ func TestApplyUserUpdateRestoresStateWhenKernelAndRestartFail(t *testing.T) {
 	}
 }
 
+func TestApplyUserUpdateStartsKernelForFirstUser(t *testing.T) {
+	k := &fakeKernel{}
+	s := newTestService(k)
+	s.lastConfig = &model.NodeSpec{Protocol: "vless"}
+	s.updateUserState(nil)
+
+	users := []model.UserSpec{{ID: 1, UUID: "uuid-first", SpeedLimit: 8}}
+	s.applyUserUpdate(context.Background(), users, computeUserHash(users))
+
+	if got := k.startCalls; got != 1 {
+		t.Fatalf("Start call count = %d, want 1", got)
+	}
+	if !k.running {
+		t.Fatal("expected kernel to be running after first full user sync")
+	}
+	if len(s.lastUsers) != 1 || s.lastUsers[0].UUID != "uuid-first" {
+		t.Fatalf("lastUsers = %#v, want first user", s.lastUsers)
+	}
+}
+
 func TestApplyUserDeltaAddPreparesLimiterBeforeKernelUpdate(t *testing.T) {
 	k := &fakeKernel{running: true}
 	s := newTestService(k)
@@ -198,6 +218,25 @@ func TestApplyUserDeltaAddPreparesLimiterBeforeKernelUpdate(t *testing.T) {
 	}
 }
 
+func TestApplyUserDeltaAddStartsKernelForFirstUser(t *testing.T) {
+	k := &fakeKernel{}
+	s := newTestService(k)
+	s.lastConfig = &model.NodeSpec{Protocol: "vless"}
+	s.updateUserState(nil)
+
+	delta := []model.UserSpec{{ID: 1, UUID: "uuid-first", SpeedLimit: 8}}
+	s.applyUserDelta(context.Background(), "add", delta)
+
+	if got := k.startCalls; got != 1 {
+		t.Fatalf("Start call count = %d, want 1", got)
+	}
+	if !k.running {
+		t.Fatal("expected kernel to be running after first user was added")
+	}
+	if len(s.lastUsers) != 1 || s.lastUsers[0].UUID != "uuid-first" {
+		t.Fatalf("lastUsers = %#v, want first user", s.lastUsers)
+	}
+}
 
 func TestValidateNodeRuntimeRejectsUnsupportedDNSProvider(t *testing.T) {
 	cfg := &config.Config{Kernel: config.KernelConfig{Type: "singbox"}}
