@@ -124,7 +124,8 @@ func (o *Orchestrator) startNode(ctx context.Context, mn panel.MachineNode) {
 	nodeCtx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
 	mb := controlplane.NewNodeMailbox()
-	o.nodes[mn.ID] = &nodeHandle{cancel: cancel, done: done, mailbox: mb}
+	handle := &nodeHandle{cancel: cancel, done: done, mailbox: mb}
+	o.nodes[mn.ID] = handle
 	o.mu.Unlock()
 
 	o.eventsMu.Lock()
@@ -172,12 +173,35 @@ func (o *Orchestrator) startNode(ctx context.Context, mn panel.MachineNode) {
 
 	go func() {
 		defer close(done)
-		defer o.unregisterNode(mn.ID)
+		defer o.unregisterNode(mn.ID, handle)
 		if err := svc.Run(nodeCtx); err != nil {
+			o.removeExitedNode(mn.ID, handle)
 			nlog.Core().Error("machine node exited with error",
 				"node_id", mn.ID, "error", err)
 		}
 	}()
+}
+
+// removeExitedNode releases a failed child so the next discovery pass can
+// retry it after its configuration is repaired (for example, after a port
+// conflict is fixed). The identity check prevents an old child from removing
+// a replacement that has already been started for the same node ID.
+func (o *Orchestrator) removeExitedNode(nodeID int, handle *nodeHandle) {
+	o.mu.Lock()
+	current, ok := o.nodes[nodeID]
+	if !ok || current != handle {
+		o.mu.Unlock()
+		return
+	}
+	delete(o.nodes, nodeID)
+	o.mu.Unlock()
+
+	o.eventsMu.Lock()
+	if current, ok := o.mailboxes[nodeID]; ok && current == handle.mailbox {
+		delete(o.mailboxes, nodeID)
+		delete(o.statuses, nodeID)
+	}
+	o.eventsMu.Unlock()
 }
 
 func (o *Orchestrator) stopNode(nodeID int) {
@@ -357,10 +381,12 @@ func (o *Orchestrator) registerNode(nodeID int, st chan<- controlplane.StatusCha
 	o.eventsMu.Unlock()
 }
 
-func (o *Orchestrator) unregisterNode(nodeID int) {
+func (o *Orchestrator) unregisterNode(nodeID int, handle *nodeHandle) {
 	o.eventsMu.Lock()
-	delete(o.mailboxes, nodeID)
-	delete(o.statuses, nodeID)
+	if current, ok := o.mailboxes[nodeID]; ok && current == handle.mailbox {
+		delete(o.mailboxes, nodeID)
+		delete(o.statuses, nodeID)
+	}
 	o.eventsMu.Unlock()
 }
 
