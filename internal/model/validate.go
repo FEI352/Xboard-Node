@@ -44,8 +44,10 @@ func ValidateNodeSpec(n *NodeSpec, kcfg config.KernelConfig) error {
 
 // singboxUnsupportedTransports lists transport types that sing-box does not support.
 var singboxUnsupportedTransports = map[string]bool{
-	"xhttp":     true,
-	"splithttp": true,
+	"xhttp":         true,
+	"splithttp":     true,
+	"xhttp-raw":     true,
+	"splithttp-raw": true,
 }
 
 func validateTransportKernel(network, kernelType string) error {

@@ -270,6 +270,12 @@ func buildVLESS(base M, nc *model.NodeSpec, users []model.UserSpec, tc kernel.TL
 	decryption := "none"
 	if nc.Decryption != "" {
 		decryption = nc.Decryption
+	} else if nc.NetworkSettings != nil {
+		if v, ok := nc.NetworkSettings["decryption"]; ok && v != nil {
+			if s, ok := v.(string); ok && s != "" {
+				decryption = s
+			}
+		}
 	}
 	base["settings"] = M{
 		"clients":    clients,
