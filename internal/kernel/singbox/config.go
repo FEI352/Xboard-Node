@@ -650,9 +650,17 @@ func buildHysteria(base M, nc *model.NodeSpec, users []model.UserSpec, tc kernel
 		base["users"] = userList
 
 		if nc.Obfs != "" {
-			base["obfs"] = M{
-				"type":     nc.Obfs,
-				"password": nc.ObfsPassword,
+			obfsType := nc.Obfs
+			if obfsType == "gecko" || obfsType == "salamander" {
+				base["obfs"] = M{
+					"type":     obfsType,
+					"password": nc.ObfsPassword,
+				}
+			} else {
+				base["obfs"] = M{
+					"type":     nc.Obfs,
+					"password": nc.ObfsPassword,
+				}
 			}
 		}
 	} else {
