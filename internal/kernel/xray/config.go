@@ -37,7 +37,12 @@ func buildConfig(kcfg config.KernelConfig, nc *model.NodeSpec, users []model.Use
 
 	// Add default outbounds only if not already defined (Issue #1: Panel priority)
 	if !tags["direct"] {
-		outbounds = append([]M{{"protocol": "freedom", "tag": "direct"}}, outbounds...)
+		// finalRules re-check the final IP after DNS resolution and per UDP
+		// packet. Xray only applies a default private-IP block for some inbounds
+		// (not socks/http), so set it explicitly.
+		outbounds = append([]M{{"protocol": "freedom", "tag": "direct", "settings": M{
+			"finalRules": []M{{"action": "block", "ip": kernel.BlockedDestinations()}},
+		}}}, outbounds...)
 	}
 	if !tags["block"] {
 		// block is often added after direct but before others for safety
@@ -661,21 +666,11 @@ func buildRouting(rules []model.RouteRule, customRouteRules []model.CustomRouteR
 		xrayRules = append(xrayRules, M(cr))
 	}
 
+	// Only matches IP destinations; the direct outbound's finalRules enforce
+	// the same list after resolution.
 	xrayRules = append(xrayRules, M{
-		"type": "field",
-		"ip": []string{
-			"10.0.0.0/8",
-			"100.64.0.0/10",
-			"127.0.0.0/8",
-			"169.254.0.0/16",
-			"172.16.0.0/12",
-			"192.0.0.0/24",
-			"192.168.0.0/16",
-			"198.18.0.0/15",
-			"fc00::/7",
-			"fe80::/10",
-			"::1/128",
-		},
+		"type":        "field",
+		"ip":          kernel.BlockedDestinations(),
 		"outboundTag": "block",
 	})
 

@@ -1,64 +1,17 @@
 package singbox
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/base64"
-	"encoding/pem"
 	"fmt"
-	"math/big"
 	"net"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/cedar2025/xboard-node/internal/config"
-	"github.com/cedar2025/xboard-node/internal/kernel"
+	"github.com/cedar2025/xboard-node/internal/kernel/kerneltest"
 	"github.com/cedar2025/xboard-node/internal/panel"
 )
-
-// selfSignedCert returns a throwaway certificate for TLS-based protocols.
-func selfSignedCert(t *testing.T) kernel.TLSCert {
-	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tmpl := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "localhost"},
-		DNSNames:     []string{"localhost"},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(time.Hour),
-		KeyUsage:     x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-	}
-	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	keyDER, err := x509.MarshalECPrivateKey(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return kernel.TLSCert{
-		CertPEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}),
-		KeyPEM:  pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER}),
-	}
-}
-
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
-}
 
 func tcpListening(port int) bool {
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 200*time.Millisecond)
@@ -92,10 +45,8 @@ func waitTCP(t *testing.T, port int, want bool, step string) {
 //
 //	XBOARD_RUNTIME_TEST=1 go test -race -tags "with_quic with_utls" -run TestRuntimeLifecycle ./internal/kernel/singbox/
 func TestRuntimeLifecycle(t *testing.T) {
-	if os.Getenv("XBOARD_RUNTIME_TEST") == "" {
-		t.Skip("set XBOARD_RUNTIME_TEST=1 to run (starts real listeners)")
-	}
-	tlsCert := selfSignedCert(t)
+	kerneltest.RequireRuntime(t)
+	tlsCert := kerneltest.SelfSignedCert(t)
 	ss2022Key := base64.StdEncoding.EncodeToString(make([]byte, 16))
 
 	cases := []struct {
@@ -120,7 +71,7 @@ func TestRuntimeLifecycle(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			port := freePort(t)
+			port := kerneltest.FreePort(t)
 			nc := tc.nc
 			nc.ServerPort = port
 			spec := testNodeSpec(&nc)

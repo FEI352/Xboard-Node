@@ -26,10 +26,10 @@ build-all: build-linux build-linux-arm64
 test:
 	go test -v -race -count=1 ./internal/...
 
-# Starts a real sing-box per protocol, hammers it while swapping users, and
-# drives real QUIC clients through hysteria/hysteria2/tuic during the swaps.
+# Starts real kernels and drives real clients through them (opt-in, binds ports):
+# user hot-swap under -race, QUIC auth during swaps, and SSRF protection.
 test-runtime:
-	XBOARD_RUNTIME_TEST=1 go test -v -race -count=1 -tags "with_quic with_utls with_wireguard with_acme with_clash_api" -run 'TestRuntimeLifecycle|TestE2EQUICUserSwap' ./internal/kernel/singbox/
+	XBOARD_RUNTIME_TEST=1 go test -v -race -count=1 -tags "with_quic with_utls with_wireguard with_acme with_clash_api" -run 'TestRuntimeLifecycle|TestE2EQUICUserSwap|TestE2ELoopbackBlocked' ./internal/kernel/singbox/ ./internal/kernel/xray/
 
 # Clean build artifacts
 clean:

@@ -39,7 +39,9 @@ func buildConfig(kcfg config.KernelConfig, nc *model.NodeSpec, users []model.Use
 
 	// Add default outbounds only if not already defined
 	if !tags["direct"] {
-		outbounds = append([]M{{"type": "direct", "tag": "direct"}}, outbounds...)
+		// block_destinations (Hei-XiaoHu/sing-box) re-checks the final IP after
+		// DNS resolution and per UDP packet; see kernel.BlockedDestinationCIDRs.
+		outbounds = append([]M{{"type": "direct", "tag": "direct", "block_destinations": kernel.BlockedDestinations()}}, outbounds...)
 	}
 	if !tags["block"] {
 		outbounds = append(outbounds, M{"type": "block", "tag": "block"})
@@ -160,29 +162,20 @@ func buildRoutes(panelRoutes []model.RouteRule, customRules []model.CustomRouteR
 		rules = append(rules, M(cr))
 	}
 
-	// Standard blocks for private IPv4 and IPv6 ranges to prevent SSRF.
+	// Standard blocks for private, loopback and reserved ranges to prevent SSRF.
+	// Only matches IP destinations; the direct outbound enforces the same list
+	// after resolution (block_destinations).
+	var blocked4, blocked6 []string
+	for _, cidr := range kernel.BlockedDestinationCIDRs {
+		if strings.Contains(cidr, ":") {
+			blocked6 = append(blocked6, cidr)
+		} else {
+			blocked4 = append(blocked4, cidr)
+		}
+	}
 	rules = append(rules,
-		M{
-			"outbound": "block",
-			"ip_cidr": []string{
-				"10.0.0.0/8",
-				"100.64.0.0/10",
-				"127.0.0.0/8",
-				"169.254.0.0/16",
-				"172.16.0.0/12",
-				"192.0.0.0/24",
-				"192.168.0.0/16",
-				"198.18.0.0/15",
-			},
-		},
-		M{
-			"outbound": "block",
-			"ip_cidr": []string{
-				"fc00::/7",
-				"fe80::/10",
-				"::1/128",
-			},
-		},
+		M{"outbound": "block", "ip_cidr": blocked4},
+		M{"outbound": "block", "ip_cidr": blocked6},
 	)
 
 	for _, pr := range panelRoutes {
