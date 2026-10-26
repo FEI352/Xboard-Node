@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
+	tun "github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing/common/buf"
 	singM "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
@@ -256,6 +257,15 @@ func (t *ConnTracker) RoutedConnection(
 		limiter:  lim,
 		ctx:      ctx,
 	}
+}
+
+// RoutedFlow implements adapter.ConnectionTracker. Flows only come from
+// tun pre-match routing, which xboard-node does not use, so they are not tracked.
+func (t *ConnTracker) RoutedFlow(
+	_ context.Context, _ adapter.InboundContext,
+	_ adapter.Rule, _ adapter.Outbound,
+) tun.FlowTracker {
+	return nil
 }
 
 // RoutedPacketConnection wraps UDP with per-user counting (UDP not in connMap).
