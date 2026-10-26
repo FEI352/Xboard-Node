@@ -52,8 +52,10 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/Hei-XiaoHu/Xray-core v0.0.0-20261026153540-b31d0714f16e h1:+9M8DKN0j5nZ1teL4YVjZidKghF8OtFIfKHPidj/azY=
 github.com/Hei-XiaoHu/Xray-core v0.0.0-20261026153540-b31d0714f16e/go.mod h1:tLfpynOfwaMAC1G61m0HH+sAJDl11hLMqoxChDms0Rw=
-github.com/Hei-XiaoHu/sing-box v1.14.5-0.20261026164331-be2a4b4135b2 h1:60eDqE/xGxZhrRLdMQnhYcsK3KZtSkDxmclmqhh9fJ4=
-github.com/Hei-XiaoHu/sing-box v1.14.5-0.20261026164331-be2a4b4135b2/go.mod h1:o9h+3Kvip5p1C6/vZ1O391P4Xertzv6F+CFtGCDnLWA=
+github.com/Hei-XiaoHu/sing-box v1.14.5-0.20261026165412-84c2462dfe09 h1:XQcVwSkkDAw4mjroyTY1N97LAr3YAgHID7RiN/ys8YI=
+github.com/Hei-XiaoHu/sing-box v1.14.5-0.20261026165412-84c2462dfe09/go.mod h1:5Vfep51RfndsENc9IZeK6WCkTdvNPqHl2sep8Z/ZyJk=
+github.com/Hei-XiaoHu/sing-quic v0.0.0-20261026165341-fcd51522a50f h1:1oWTA+t4LqmENJYbUWog2eejySgTrcwhhHGTyAQ4qSo=
+github.com/Hei-XiaoHu/sing-quic v0.0.0-20261026165341-fcd51522a50f/go.mod h1:rJFeVxbEej2iuyeCJ3drKW+p5rOgtLIW3XhZ6ty7Fig=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/purell v1.1.1 h1:WEQqlqaGbrPkxLJWfBwQmfEAE1Z7ONdDLqrN38tNFfI=
@@ -795,8 +797,6 @@ github.com/sagernet/sing-openconnect v0.1.1-0.20260929151225-cbd68c45de58 h1:WOP
 github.com/sagernet/sing-openconnect v0.1.1-0.20260929151225-cbd68c45de58/go.mod h1:4AKZLVcvY3r54UaK2Gbnm7aN8pOwdLz+y4EP0QFZ5Eg=
 github.com/sagernet/sing-openvpn v0.1.1-0.20261020061838-432d37b47c92 h1:bMFGGGy7Kp+3ffTfPshTN3vmcyiDJP+ZTNCdP8B4KYo=
 github.com/sagernet/sing-openvpn v0.1.1-0.20261020061838-432d37b47c92/go.mod h1:PWX7WygD8jpwfqfaGNySXpJYTn0SOwjBI1BKHHC2+Bw=
-github.com/sagernet/sing-quic v0.7.2-0.20261020082049-7e0a5869a5f4 h1:QuhAb8QW0pKYmSvfj/nK91libunBwVJiWb852yidlxI=
-github.com/sagernet/sing-quic v0.7.2-0.20261020082049-7e0a5869a5f4/go.mod h1:rJFeVxbEej2iuyeCJ3drKW+p5rOgtLIW3XhZ6ty7Fig=
 github.com/sagernet/sing-shadowsocks v0.2.9-0.20260929204512-65740e0f0e3e h1:LKgE/uuqp/D2kgxYViOz8vf4slaCUfpFywXjtuwD5gU=
 github.com/sagernet/sing-shadowsocks v0.2.9-0.20260929204512-65740e0f0e3e/go.mod h1:lo7TWEMDcN5/h5B8S0ew+r78ZODn6SwVaFhvB6H+PTI=
 github.com/sagernet/sing-shadowsocks2 v0.2.2-0.20260929152114-a69d1086332b h1:VH65QNqSHat2b+N3Rlzo5Qe44gRmQGwzY5atuy3D0A8=
