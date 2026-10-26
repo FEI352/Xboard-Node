@@ -81,6 +81,19 @@ git push origin main
 还会用真实客户端在换用户期间持续连接，并验证删掉的用户连不上、新加的用户能连上。
 内核升级后务必跑一次。
 
+## 发布
+
+服务器上的 `install.sh` 和 `xbctl upgrade` 都从本仓库 Release 里标为 **Latest** 的版本下载。
+
+- 推送到 `main`：CI 测试、编译，并更新滚动预发布 `dev`（不会被安装/升级选中，可用 `--version dev` 指定）。
+- 发正式版：打 `v*` tag，CI 发布并标为 Latest。版本号沿用上游版本加后缀，避免和原作者撞号：
+
+```bash
+git tag -a v1.13-hx.2 -m "说明" && git push origin v1.13-hx.2
+```
+
+服务器升级：`xbctl upgrade`。CI 里的 Docker 任务只在 cedar2025 仓库运行，fork 里自动跳过。
+
 ## 注意事项
 
 - **防 SSRF（防止用户借节点访问节点所在机器/内网）：** 拦截列表在
@@ -89,4 +102,3 @@ git push origin main
   并对每个 UDP 包检查。面板里的路由“放行”规则放行不了这些地址；确实需要访问内网时，
   在 `kernel.custom_outbound` 里自定义一个 tag 为 `direct` 的出站来覆盖默认直连（风险自负）。
 
-- 仓库里有一个名为 `dev` 的 tag，推送时请写全分支名：`git push origin refs/heads/main`。
