@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -27,6 +28,19 @@ import (
 // drainTimeout is how long stop() waits for in-flight connections to finish
 // naturally after closing all listen sockets, before hard-killing them.
 const drainTimeout = 5 * time.Second
+
+// errNoInPlaceUpdate marks inbounds whose users cannot be swapped in place
+// (e.g. mieru, hysteria v1). They are recreated instead of silently keeping
+// the old user set.
+var errNoInPlaceUpdate = errors.New("inbound does not support in-place user update")
+
+func logInPlaceUpdateFallback(tag string, err error) {
+	if errors.Is(err, errNoInPlaceUpdate) {
+		nlog.Core().Debug("recreating inbound to apply users", "tag", tag)
+		return
+	}
+	nlog.Core().Warn("incremental update failed, recreating inbound", "tag", tag, "error", err)
+}
 
 // SingBox implements kernel.Kernel by embedding sing-box as a Go library.
 //
@@ -236,7 +250,7 @@ func (s *SingBox) Reload(nodeConfig *model.NodeSpec, users []model.UserSpec, tls
 		tag := inb.Tag
 		if !configChanged {
 			if existing, ok := im.Get(tag); ok && existing.Type() == inb.Type {
-				var err error
+				err := errNoInPlaceUpdate
 				switch v := existing.(type) {
 				case adapter.UpdatableInbound[option.VMessUser]:
 					if opts, ok := inb.Options.(*option.VMessInboundOptions); ok {
@@ -283,7 +297,7 @@ func (s *SingBox) Reload(nodeConfig *model.NodeSpec, users []model.UserSpec, tls
 				if err == nil {
 					continue
 				}
-				nlog.Core().Warn("incremental update failed, falling back to recreate", "tag", tag, "error", err)
+				logInPlaceUpdateFallback(tag, err)
 			}
 		}
 
@@ -544,7 +558,7 @@ func (s *SingBox) reloadInboundsLocked(users []model.UserSpec) error {
 	for _, inb := range opts.Inbounds {
 		tag := inb.Tag
 		if existing, ok := im.Get(tag); ok && existing.Type() == inb.Type {
-			var err error
+			err := errNoInPlaceUpdate
 			switch v := existing.(type) {
 			case adapter.UpdatableInbound[option.VMessUser]:
 				if opts, ok := inb.Options.(*option.VMessInboundOptions); ok {
@@ -591,7 +605,7 @@ func (s *SingBox) reloadInboundsLocked(users []model.UserSpec) error {
 			if err == nil {
 				continue
 			}
-			nlog.Core().Warn("incremental update failed, recreating inbound", "tag", tag, "error", err)
+			logInPlaceUpdateFallback(tag, err)
 		}
 
 		_ = removeInbound(im, tag)

@@ -83,14 +83,14 @@ func waitTCP(t *testing.T, port int, want bool, step string) {
 
 // TestRuntimeLifecycle starts a real sing-box instance for each protocol and
 // exercises the hot paths xboard-node relies on: Reload with a changed config
-// (inbound remove + recreate on the same port), UpdateUsers (in-place user
-// swap) and Stop (listeners released).
+// (inbound remove + recreate on the same port), repeated UpdateUsers while
+// clients keep connecting (in-place user swap racing with handshakes), and
+// Stop (listeners released). Run it under -race to catch data races.
 //
-// It is opt-in because it binds real ports and, under -race, trips on known
-// data races in the in-place UpdateUsers paths (vmess/socks/http). Run with
-// the release build tags so QUIC protocols are available:
+// It is opt-in because it binds real ports. Use the release build tags so
+// QUIC protocols are available:
 //
-//	XBOARD_RUNTIME_TEST=1 go test -tags "with_quic with_utls" -run TestRuntimeLifecycle ./internal/kernel/singbox/
+//	XBOARD_RUNTIME_TEST=1 go test -race -tags "with_quic with_utls" -run TestRuntimeLifecycle ./internal/kernel/singbox/
 func TestRuntimeLifecycle(t *testing.T) {
 	if os.Getenv("XBOARD_RUNTIME_TEST") == "" {
 		t.Skip("set XBOARD_RUNTIME_TEST=1 to run (starts real listeners)")
@@ -113,6 +113,7 @@ func TestRuntimeLifecycle(t *testing.T) {
 		{"socks", panel.NodeConfig{Protocol: "socks"}, true},
 		{"http", panel.NodeConfig{Protocol: "http"}, true},
 		{"mieru", panel.NodeConfig{Protocol: "mieru", Transport: "TCP"}, true},
+		{"hysteria", panel.NodeConfig{Protocol: "hysteria", Version: 1, UpMbps: 100, DownMbps: 100}, false},
 		{"hysteria2", panel.NodeConfig{Protocol: "hysteria", Version: 2}, false},
 		{"tuic", panel.NodeConfig{Protocol: "tuic"}, false},
 	}
@@ -147,9 +148,28 @@ func TestRuntimeLifecycle(t *testing.T) {
 				waitTCP(t, port, true, "after reload")
 			}
 
-			if _, _, err := sb.UpdateUsers(testUsers[:1]); err != nil {
-				t.Fatalf("update users: %v", err)
+			// Keep handshaking against the inbound while users are swapped,
+			// so -race sees user lookups racing with UpdateUsers.
+			stopClients := make(chan struct{})
+			clientsDone := make(chan struct{})
+			go func() {
+				defer close(clientsDone)
+				hammer(port, tc.tcp, stopClients)
+			}()
+			for i := 0; i < 20; i++ {
+				users := testUsers
+				if i%2 == 0 {
+					users = testUsers[:1]
+				}
+				if _, _, err := sb.UpdateUsers(users); err != nil {
+					close(stopClients)
+					<-clientsDone
+					t.Fatalf("update users #%d: %v", i, err)
+				}
+				time.Sleep(5 * time.Millisecond)
 			}
+			close(stopClients)
+			<-clientsDone
 			if tc.tcp {
 				waitTCP(t, port, true, "after update users")
 			}
@@ -160,5 +180,33 @@ func TestRuntimeLifecycle(t *testing.T) {
 				waitTCP(t, port, false, "after stop")
 			}
 		})
+	}
+}
+
+// hammer opens short-lived connections that send a bogus handshake until stop
+// is closed. Each one makes the inbound look up its current user table.
+func hammer(port int, tcp bool, stop <-chan struct{}) {
+	network := "udp"
+	if tcp {
+		network = "tcp"
+	}
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	payload := make([]byte, 128)
+	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+		_, _ = rand.Read(payload)
+		conn, err := net.DialTimeout(network, addr, 200*time.Millisecond)
+		if err != nil {
+			time.Sleep(5 * time.Millisecond)
+			continue
+		}
+		_ = conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
+		_, _ = conn.Write(payload)
+		_, _ = conn.Read(payload)
+		_ = conn.Close()
 	}
 }

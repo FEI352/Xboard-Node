@@ -52,8 +52,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/Hei-XiaoHu/Xray-core v0.0.0-20261026153540-b31d0714f16e h1:+9M8DKN0j5nZ1teL4YVjZidKghF8OtFIfKHPidj/azY=
 github.com/Hei-XiaoHu/Xray-core v0.0.0-20261026153540-b31d0714f16e/go.mod h1:tLfpynOfwaMAC1G61m0HH+sAJDl11hLMqoxChDms0Rw=
-github.com/Hei-XiaoHu/sing-box v1.14.5-0.20261026161930-c04b3f62853a h1:vU63VfV38AVvrMWa/aDoNlfB7MF24M0KFawONrgGO0U=
-github.com/Hei-XiaoHu/sing-box v1.14.5-0.20261026161930-c04b3f62853a/go.mod h1:o9h+3Kvip5p1C6/vZ1O391P4Xertzv6F+CFtGCDnLWA=
+github.com/Hei-XiaoHu/sing-box v1.14.5-0.20261026164331-be2a4b4135b2 h1:60eDqE/xGxZhrRLdMQnhYcsK3KZtSkDxmclmqhh9fJ4=
+github.com/Hei-XiaoHu/sing-box v1.14.5-0.20261026164331-be2a4b4135b2/go.mod h1:o9h+3Kvip5p1C6/vZ1O391P4Xertzv6F+CFtGCDnLWA=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/purell v1.1.1 h1:WEQqlqaGbrPkxLJWfBwQmfEAE1Z7ONdDLqrN38tNFfI=

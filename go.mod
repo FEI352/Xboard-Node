@@ -293,6 +293,6 @@ require (
 	zombiezen.com/go/capnproto2 v2.18.2+incompatible // indirect
 )
 
-replace github.com/sagernet/sing-box => github.com/Hei-XiaoHu/sing-box v1.14.5-0.20261026161930-c04b3f62853a
+replace github.com/sagernet/sing-box => github.com/Hei-XiaoHu/sing-box v1.14.5-0.20261026164331-be2a4b4135b2
 
 replace github.com/xtls/xray-core => github.com/Hei-XiaoHu/Xray-core v0.0.0-20261026153540-b31d0714f16e

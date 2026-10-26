@@ -2,7 +2,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -s -w -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.commit=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 
-.PHONY: build clean test docker install build-linux build-linux-arm64 build-all
+.PHONY: build clean test docker install build-linux build-linux-arm64 build-all test-runtime
 
 # Build for current platform
 build:
@@ -25,6 +25,10 @@ build-all: build-linux build-linux-arm64
 # Run tests
 test:
 	go test -v -race -count=1 ./internal/...
+
+# Starts a real sing-box per protocol and hammers it while swapping users.
+test-runtime:
+	XBOARD_RUNTIME_TEST=1 go test -v -race -count=1 -tags "with_quic with_utls with_wireguard with_acme with_clash_api" -run TestRuntimeLifecycle ./internal/kernel/singbox/
 
 # Clean build artifacts
 clean:

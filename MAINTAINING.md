@@ -54,16 +54,17 @@ go mod edit -replace=github.com/sagernet/sing-box=github.com/Hei-XiaoHu/sing-box
 go mod tidy
 
 make test
-XBOARD_RUNTIME_TEST=1 go test -tags "with_quic with_utls" -run TestRuntimeLifecycle ./internal/kernel/singbox/
+make test-runtime
 make build-linux build-linux-arm64
 git push origin main
 ```
 
-`TestRuntimeLifecycle` 会为每种协议真正启动 sing-box，并走一遍 Reload / UpdateUsers / Stop，
-内核大版本升级后务必跑一次。
+`make test-runtime` 会为每种协议真正启动 sing-box，走一遍 Reload / Stop，
+并在不断有连接握手的同时反复 UpdateUsers（开 `-race`），内核升级后务必跑一次。
 
 ## 已知问题
 
-- 原作者的就地 UpdateUsers（vmess / socks / http 等）在 `-race` 下有数据竞争
-  （改用户表时没有加锁），升级前就存在，不是本次升级引入的。
+- hysteria2 / tuic 的就地换用户仍由 sing-quic 库直接替换内部 map，没有加锁。
+  sing-box 层已改为按用户指针识别，不会再串号或越界崩溃，但库内部这次替换
+  理论上仍是数据竞争（主要在 arm64 上有极小概率）。彻底修复需要再 fork sing-quic。
 - 仓库里有一个名为 `dev` 的 tag，推送时请写全分支名：`git push origin refs/heads/main`。
