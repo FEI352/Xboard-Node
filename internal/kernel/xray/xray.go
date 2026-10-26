@@ -571,8 +571,13 @@ func toMemoryUser(proto string, nc *model.NodeSpec, u model.UserSpec) (*protocol
 
 	case "shadowsocks":
 		if strings.HasPrefix(nc.Cipher, "2022-blake3-") {
-			// 2022-blake3 multi-user mode
-			mu.Account = &ss2022.MemoryAccount{Key: u.UUID}
+			// 2022-blake3 multi-user mode. Build via Account.AsAccount so the
+			// base64 user key is decoded to raw PSK bytes the same way xray does.
+			ssAcc, err := (&ss2022.Account{Key: u.UUID}).AsAccount()
+			if err != nil {
+				return nil, fmt.Errorf("build ss2022 account: %w", err)
+			}
+			mu.Account = ssAcc
 		} else {
 			// Traditional SS — build via getCipher path
 			ct := parseCipherType(nc.Cipher)
@@ -602,7 +607,9 @@ func parseCipherType(cipher string) shadowsocks.CipherType {
 	case "xchacha20-ietf-poly1305", "xchacha20-poly1305":
 		return shadowsocks.CipherType_XCHACHA20_POLY1305
 	case "none", "plain":
-		return shadowsocks.CipherType_NONE
+		// Upstream xray removed unencrypted Shadowsocks (XTLS/Xray-core#6303);
+		// UNKNOWN makes AsAccount fail loudly instead of silently using AES.
+		return shadowsocks.CipherType_UNKNOWN
 	default:
 		return shadowsocks.CipherType_AES_256_GCM
 	}
