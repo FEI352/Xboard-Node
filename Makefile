@@ -2,7 +2,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -s -w -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.commit=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 
-.PHONY: build clean test docker install build-linux build-linux-arm64 build-all
+.PHONY: build clean test docker install build-linux build-linux-arm64 build-all test-runtime
 
 # Build for current platform
 build:
@@ -30,6 +30,11 @@ build-all: build-linux build-linux-arm64 build-windows
 # Run tests
 test:
 	go test -v -race -count=1 ./internal/...
+
+# Starts real kernels and drives real clients through them (opt-in, binds ports):
+# user hot-swap under -race, QUIC auth during swaps, and SSRF protection.
+test-runtime:
+	XBOARD_RUNTIME_TEST=1 go test -v -race -count=1 -tags "with_quic with_utls with_wireguard with_acme with_clash_api" -run 'TestRuntimeLifecycle|TestE2EQUICUserSwap|TestE2ELoopbackBlocked' ./internal/kernel/singbox/ ./internal/kernel/xray/
 
 # Clean build artifacts
 clean:

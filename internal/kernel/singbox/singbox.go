@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -27,6 +28,19 @@ import (
 // drainTimeout is how long stop() waits for in-flight connections to finish
 // naturally after closing all listen sockets, before hard-killing them.
 const drainTimeout = 5 * time.Second
+
+// errNoInPlaceUpdate marks inbounds whose users cannot be swapped in place
+// (e.g. mieru, hysteria v1). They are recreated instead of silently keeping
+// the old user set.
+var errNoInPlaceUpdate = errors.New("inbound does not support in-place user update")
+
+func logInPlaceUpdateFallback(tag string, err error) {
+	if errors.Is(err, errNoInPlaceUpdate) {
+		nlog.Core().Debug("recreating inbound to apply users", "tag", tag)
+		return
+	}
+	nlog.Core().Warn("incremental update failed, recreating inbound", "tag", tag, "error", err)
+}
 
 // SingBox implements kernel.Kernel by embedding sing-box as a Go library.
 //
@@ -166,9 +180,7 @@ func (s *SingBox) Start(nodeConfig *model.NodeSpec, users []model.UserSpec, tls 
 // then hard-closes. This avoids blocking the new instance's startup.
 func recycleOldBox(oldBox *box.Box, oldCancel context.CancelFunc, oldCtx context.Context, oldTracker *ConnTracker) {
 	// Step 1: close listen sockets so no new connections arrive on old ports.
-	if im := service.FromContext[adapter.InboundManager](oldCtx); im != nil {
-		_ = im.Close()
-	}
+	_ = closeInbounds(service.FromContext[adapter.InboundManager](oldCtx))
 
 	// Step 2: drain in-flight connections (best-effort).
 	if oldTracker != nil {
@@ -238,7 +250,7 @@ func (s *SingBox) Reload(nodeConfig *model.NodeSpec, users []model.UserSpec, tls
 		tag := inb.Tag
 		if !configChanged {
 			if existing, ok := im.Get(tag); ok && existing.Type() == inb.Type {
-				var err error
+				err := errNoInPlaceUpdate
 				switch v := existing.(type) {
 				case adapter.UpdatableInbound[option.VMessUser]:
 					if opts, ok := inb.Options.(*option.VMessInboundOptions); ok {
@@ -285,7 +297,7 @@ func (s *SingBox) Reload(nodeConfig *model.NodeSpec, users []model.UserSpec, tls
 				if err == nil {
 					continue
 				}
-				nlog.Core().Warn("incremental update failed, falling back to recreate", "tag", tag, "error", err)
+				logInPlaceUpdateFallback(tag, err)
 			}
 		}
 
@@ -294,7 +306,7 @@ func (s *SingBox) Reload(nodeConfig *model.NodeSpec, users []model.UserSpec, tls
 		// im.Create() cannot atomically swap a TCP listener — it tries to start the
 		// new socket before the old one is closed, causing "address already in use".
 		// The brief listen gap (< 1 ms) is far less disruptive than a full restart.
-		_ = im.Remove(tag) // ignore error when tag doesn't exist yet
+		_ = removeInbound(im, tag) // ignore error when tag doesn't exist yet
 		logger := nopFactory.NewLogger(fmt.Sprintf("inbound/%s[%s]", inb.Type, tag))
 		if err := im.Create(s.ctx, router, logger, tag, inb.Type, inb.Options); err != nil {
 			return fmt.Errorf("recreate inbound %s: %w", tag, err)
@@ -343,12 +355,10 @@ func (s *SingBox) stop() {
 	}
 
 	// Step 1: close all listen sockets so no new connections are accepted.
-	// im.Close() sets m.started=false so the subsequent box.Close() call is a no-op
-	// for inbounds (avoids double-close), but box.Close() still tears down routers
-	// and outbounds.
-	if im := service.FromContext[adapter.InboundManager](s.ctx); im != nil {
-		_ = im.Close()
-	}
+	// closeInbounds releases each inbound's scope, so the subsequent box.Close()
+	// is a no-op for inbounds (avoids double-close), but still tears down
+	// routers and outbounds.
+	_ = closeInbounds(service.FromContext[adapter.InboundManager](s.ctx))
 
 	// Step 2: wait for in-flight connections to drain naturally (best-effort).
 	if s.connTracker != nil {
@@ -548,7 +558,7 @@ func (s *SingBox) reloadInboundsLocked(users []model.UserSpec) error {
 	for _, inb := range opts.Inbounds {
 		tag := inb.Tag
 		if existing, ok := im.Get(tag); ok && existing.Type() == inb.Type {
-			var err error
+			err := errNoInPlaceUpdate
 			switch v := existing.(type) {
 			case adapter.UpdatableInbound[option.VMessUser]:
 				if opts, ok := inb.Options.(*option.VMessInboundOptions); ok {
@@ -595,10 +605,10 @@ func (s *SingBox) reloadInboundsLocked(users []model.UserSpec) error {
 			if err == nil {
 				continue
 			}
-			nlog.Core().Warn("incremental update failed, recreating inbound", "tag", tag, "error", err)
+			logInPlaceUpdateFallback(tag, err)
 		}
 
-		_ = im.Remove(tag)
+		_ = removeInbound(im, tag)
 		logger := nopFactory.NewLogger(fmt.Sprintf("inbound/%s[%s]", inb.Type, tag))
 		if err := im.Create(s.ctx, router, logger, tag, inb.Type, inb.Options); err != nil {
 			return fmt.Errorf("recreate inbound %s: %w", tag, err)
@@ -654,4 +664,24 @@ func buildUserMap(users []model.UserSpec) map[string]int {
 		m[u.UUID] = u.ID
 	}
 	return m
+}
+
+// removeInbound stops and removes a running inbound. It relies on the
+// DynamicInboundManager extension of the Hei-XiaoHu/sing-box fork, since
+// upstream sing-box 1.14 no longer supports removing inbounds.
+func removeInbound(im adapter.InboundManager, tag string) error {
+	dim, ok := im.(adapter.DynamicInboundManager)
+	if !ok {
+		return fmt.Errorf("inbound manager does not support removing inbounds")
+	}
+	return dim.Remove(tag)
+}
+
+// closeInbounds closes every inbound listener without closing the box.
+func closeInbounds(im adapter.InboundManager) error {
+	dim, ok := im.(adapter.DynamicInboundManager)
+	if !ok {
+		return nil
+	}
+	return dim.Close()
 }
